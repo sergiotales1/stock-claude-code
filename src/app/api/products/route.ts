@@ -1,18 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
-const prisma = new PrismaClient();
+// Type definitions for API response
+export interface Product {
+  id: number;
+  name: string;
+  description: string | null;
+  quantity: number;
+  imageUrl: string | null;
+}
+
+export interface ProductsResponse {
+  products?: Product[];
+  error?: string;
+}
 
 export async function GET() {
   try {
+    // Use select to only fetch required fields for optimal performance
     const products = await prisma.product.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        quantity: true,
+        imageUrl: true,
+      },
       orderBy: {
         createdAt: "desc",
       },
     });
-    return NextResponse.json(products);
+
+    // Add basic caching headers for static product data
+    return NextResponse.json(products, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
+    });
   } catch (error) {
+    // Log the full error for debugging
     console.error("Error fetching products:", error);
+
+    // Return generic error message to client
     return NextResponse.json(
       { error: "Failed to fetch products" },
       { status: 500 }
